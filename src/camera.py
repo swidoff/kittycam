@@ -3,26 +3,36 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from kivy.app import App
 from kivy.clock import Clock
-from kivy.graphics.texture import Texture, texture_create
+from kivy.graphics.texture import texture_create
 from kivy.uix.image import Image
 
 import coco
 
 s = 0
-if len(sys.argv) > 1:
-    s = sys.argv[1]
-
 FONT_FACE = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SCALE = 0.7
 THICKNESS = 1
 
-model_dir = Path("models") / "ssd_mobilenet_v2_coco_2018_03_29"
+model_dir = Path("../models") / "ssd_mobilenet_v2_coco_2018_03_29"
 model_file = model_dir / "frozen_inference_graph.pb"
 config_file = model_dir / "ssd_mobilenet_v2_coco_2018_03_29.pbtxt"
 
 net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
+
+
+class Camera(Image):
+    def __init__(self, capture, fps, **kwargs):
+        super(Camera, self).__init__(**kwargs)
+        self.capture = capture
+        Clock.schedule_interval(self.update, 1.0 / fps)
+
+    def update(self, dt):
+        has_frame, frame = self.capture.read()
+        if has_frame:
+            objects = detect_objects(frame)
+            display_objects(frame, objects)
+            self.texture = cv2_img_to_texture(frame)
 
 
 def detect_objects(im: np.ndarray, dim: int = 300) -> np.ndarray:
@@ -83,25 +93,7 @@ def display_objects(im: np.ndarray, objects: np.ndarray, threshold: float = 0.25
             cv2.rectangle(im, (x, y), (x + w, y + h), (255, 255, 255), 2)
 
 
-class KivyCamera(Image):
-    def __init__(self, capture, fps, **kwargs):
-        super(KivyCamera, self).__init__(**kwargs)
-        self.capture = capture
-        Clock.schedule_interval(self.update, 1.0 / fps)
-
-    def update(self, dt):
-        has_frame, frame = self.capture.read()
-        if has_frame:
-            objects = detect_objects(frame)
-            display_objects(frame, objects)
-
-            # convert it to texture
-            image_texture = self.cv2_img_to_texture(frame)
-            # display image from the texture
-            self.texture = image_texture
-
-
-def cv2_img_to_texture(self, frame):
+def cv2_img_to_texture(frame):
     buf1 = cv2.flip(frame, 0)
     buf = buf1.tostring()
     image_texture = texture_create(
@@ -109,23 +101,3 @@ def cv2_img_to_texture(self, frame):
     )
     image_texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
     return image_texture
-
-
-class CamApp(App):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.capture: cv2.VideoCapture | None = None
-        self.my_camera: KivyCamera | None = None
-
-    def build(self):
-        self.capture = cv2.VideoCapture(s)
-        self.my_camera = KivyCamera(capture=self.capture, fps=30)
-        return self.my_camera
-
-    def on_stop(self):
-        # without this, app will not exit even if the window is closed
-        self.capture.release()
-
-
-if __name__ == "__main__":
-    CamApp().run()
