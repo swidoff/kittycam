@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from kivy.app import App
 from kivy.clock import Clock
-from kivy.graphics.texture import Texture
+from kivy.graphics.texture import Texture, texture_create
 from kivy.uix.image import Image
 
 import coco
@@ -96,17 +96,27 @@ class KivyCamera(Image):
             display_objects(frame, objects)
 
             # convert it to texture
-            buf1 = cv2.flip(frame, 0)
-            buf = buf1.tostring()
-            image_texture = Texture.create(
-                size=(frame.shape[1], frame.shape[0]), colorfmt="bgr"
-            )
-            image_texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
+            image_texture = self.cv2_img_to_texture(frame)
             # display image from the texture
             self.texture = image_texture
 
 
+def cv2_img_to_texture(self, frame):
+    buf1 = cv2.flip(frame, 0)
+    buf = buf1.tostring()
+    image_texture = texture_create(
+        size=(frame.shape[1], frame.shape[0]), colorfmt="bgr"
+    )
+    image_texture.blit_buffer(buf, colorfmt="bgr", bufferfmt="ubyte")
+    return image_texture
+
+
 class CamApp(App):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.capture: cv2.VideoCapture | None = None
+        self.my_camera: KivyCamera | None = None
+
     def build(self):
         self.capture = cv2.VideoCapture(s)
         self.my_camera = KivyCamera(capture=self.capture, fps=30)

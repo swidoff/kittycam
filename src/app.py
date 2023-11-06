@@ -1,3 +1,5 @@
+import dataclasses
+from dataclasses import dataclass
 from typing import List
 
 import kivy
@@ -6,59 +8,41 @@ from kivy.eventmanager import EventManagerBase
 from kivy.graphics import Color, Ellipse, Line
 from kivy.uix.button import Button
 from kivy.uix.widget import Widget
-from shapely import LineString
+from shapely import LineString, Polygon
 
 kivy.require("2.2.1")
+d = 20
 
 
-class MyPaintWidget(Widget):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.complete = False
-        self.first_x: int | None = None
-        self.first_y: int | None = None
-        self.active_line: Line | None = None
-        self.active_color: Color | None = None
-        self.active_line_valid: bool = True
-        self.completed_lines: List[LineString] = []
+@dataclass
+class DrawingState(object):
+    first_x: int
+    first_y: int
+    active_line: Line | None = None
+    active_color: Color | None = None
+    active_line_valid: bool = True
+    completed_lines: List[LineString] = dataclasses.field(default_factory=list)
 
-    def on_touch_down(self, touch):
-        if self.complete:
-            return
+    def completes_polygon(self, x: int, y: int) -> bool:
+        if len(self.completed_lines) < 2:
+            return False
+        else:
+            return (
+                self.first_x - d / 2 <= x <= self.first_x + d / 2
+                and self.first_y - d / 2 <= y <= self.first_y + d / 2
+            )
 
-        if self.first_x is None:
-            self.first_x = touch.x
-            self.first_y = touch.y
+    def complete_line(self, x: int, y: int):
+        [x1, y1] = self.active_line.points[:2]
+        self.completed_lines.append(LineString([[x1, y1], [x, y]]))
 
-        d = 20
-        if self.completed_lines:
-            if (
-                self.first_x - d / 2 <= touch.x <= self.first_x + d / 2
-                and self.first_y - d / 2 <= touch.y <= self.first_y + d / 2
-            ):
-                self.complete = True
-                self.update_active_line(self.first_x, self.first_y)
-            elif self.active_line:
-                self.update_active_line(touch.x, touch.y)
-
-        if self.active_line is not None:
-            if self.active_line_valid:
-                [x1, y1, x2, y2] = self.active_line.points
-                self.completed_lines.append(LineString([[x1, y1], [x2, y2]]))
-            else:
-                return
-
-        if not self.complete:
-            with self.canvas:
-                self.active_color = Color((1, 1, 1))
-                _ = Ellipse(pos=(touch.x - d / 2, touch.y - d / 2), size=(d, d))
-                self.active_line = Line(points=(touch.x, touch.y, touch.x, touch.y))
-
-    def on_move(self, x, y):
-        if self.active_line is not None and not self.complete:
-            self.update_active_line(x, y)
+    def to_polygon(self) -> Polygon:
+        pass
 
     def update_active_line(self, x2: int, y2: int):
+        if self.active_line is None:
+            return
+
         x1 = self.active_line.points[0]
         y1 = self.active_line.points[1]
         self.active_line.points = [x1, y1, x2, y2]
@@ -70,14 +54,38 @@ class MyPaintWidget(Widget):
             self.active_color.rgb = (1, 1, 1)
             self.active_line_valid = True
 
+
+class MyPaintWidget(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.state: DrawingState | None = None
+        self.polygons: List[Polygon] = []
+
+    def on_touch_down(self, touch):
+        if self.state is None:
+            self.state = DrawingState(touch.x, touch.y)
+        elif not self.state.active_line_valid:
+            return
+        elif self.state.completes_polygon(touch.x, touch.y):
+            self.state.complete_line(self.state.first_x, self.state.first_y)
+            self.polygons.append(self.state.to_polygon())
+            self.state = None
+            return
+        else:
+            self.state.complete_line(touch.x, touch.y)
+
+        with self.canvas:
+            self.state.active_color = Color((1, 1, 1))
+            _ = Ellipse(pos=(touch.x - d / 2, touch.y - d / 2), size=(d, d))
+            self.state.active_line = Line(points=(touch.x, touch.y, touch.x, touch.y))
+
+    def on_move(self, x, y):
+        if self.state:
+            self.state.update_active_line(x, y)
+
     def clear(self):
-        self.complete = False
-        self.first_x: int | None = None
-        self.first_y: int | None = None
-        self.active_line: Line | None = None
-        self.active_color: Color | None = None
-        self.active_line_valid: bool = True
-        self.completed_lines: List[LineString] = []
+        self.state = None
+        self.polygons = []
         self.canvas.clear()
 
 
@@ -101,6 +109,10 @@ class EventManager(EventManagerBase):
 
 
 class MyApp(App):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.painter: MyPaintWidget | None = None
+
     def build(self):
         parent = Widget()
         self.painter = MyPaintWidget()
@@ -112,11 +124,9 @@ class MyApp(App):
 
     def on_start(self):
         super().on_start()
-        self.root_window.register_event_manager(
-            EventManager(self.root_window.children[0].children[-1])
-        )
+        self.root_window.register_event_manager(EventManager(self.painter))
 
-    def clear_canvas(self, obj):
+    def clear_canvas(self, _obj):
         self.painter.clear()
 
 
