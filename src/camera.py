@@ -1,11 +1,13 @@
-import sys
 from pathlib import Path
+from typing import Collection, Set, List
 
 import cv2
 import numpy as np
 from kivy.clock import Clock
 from kivy.graphics.texture import texture_create
+from kivy.properties import ListProperty
 from kivy.uix.image import Image
+from shapely import Polygon
 
 import coco
 
@@ -22,16 +24,29 @@ net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
 
 
 class Camera(Image):
-    def __init__(self, capture, fps, **kwargs):
+    polygons = ListProperty([])
+
+    def __init__(
+        self,
+        capture: cv2.VideoCapture,
+        fps: int,
+        class_labels: Collection[str] | None,
+        **kwargs
+    ):
         super(Camera, self).__init__(**kwargs)
         self.capture = capture
+        self.class_labels = set(class_labels or coco.class_labels)
         Clock.schedule_interval(self.update, 1.0 / fps)
 
-    def update(self, dt):
+    def on_polygons(self, instance, polygons):
+        if polygons:
+            print("Polygon", polygons[-1])
+
+    def update(self, _dt):
         has_frame, frame = self.capture.read()
         if has_frame:
             objects = detect_objects(frame)
-            display_objects(frame, objects)
+            display_objects(frame, objects, self.class_labels, self.polygons)
             self.texture = cv2_img_to_texture(frame)
 
 
@@ -71,7 +86,13 @@ def display_text(im: np.ndarray, text: str, x: int, y: int):
     )
 
 
-def display_objects(im: np.ndarray, objects: np.ndarray, threshold: float = 0.25):
+def display_objects(
+    im: np.ndarray,
+    objects: np.ndarray,
+    label_filter: Set[str],
+    polygons: List[Polygon],
+    threshold: float = 0.25,
+):
     rows = im.shape[0]
     cols = im.shape[1]
 
@@ -88,9 +109,18 @@ def display_objects(im: np.ndarray, objects: np.ndarray, threshold: float = 0.25
         h = int(objects[0, 0, i, 6] * rows - y)
 
         # Check if the detection is of good quality
-        if score > threshold:
+        if score > threshold and coco.class_labels[class_id] in label_filter:
             display_text(im, coco.class_labels[class_id], x, y)
-            cv2.rectangle(im, (x, y), (x + w, y + h), (255, 255, 255), 2)
+            oy = rows - y
+            object_rectangle = Polygon(
+                shell=[(x, oy), (x + w, oy), (x + w, oy - h), (x, oy - h)]
+            )
+            if any(object_rectangle.intersects(polygon) for polygon in polygons):
+                color = (0, 0, 255)
+            else:
+                color = (255, 255, 255)
+
+            cv2.rectangle(im, (x, y), (x + w, y + h), color, 2)
 
 
 def cv2_img_to_texture(frame):
