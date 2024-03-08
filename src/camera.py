@@ -38,10 +38,6 @@ class Camera(Image):
         self.class_labels = set(class_labels or coco.class_labels)
         Clock.schedule_interval(self.update, 1.0 / fps)
 
-    def on_polygons(self, instance, polygons):
-        if polygons:
-            print("Polygon", polygons[-1])
-
     def update(self, _dt):
         has_frame, frame = self.capture.read()
         if has_frame:
