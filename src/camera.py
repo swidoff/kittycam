@@ -1,15 +1,14 @@
-import itertools
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Collection, Set, List, Tuple
+from typing import Collection, Set
 
 import cv2
 import numpy as np
-import toolz
+import plyer
 from kivy.clock import Clock
 from kivy.graphics.texture import texture_create
-from kivy.properties import ListProperty, NumericProperty, BooleanProperty
+from kivy.properties import ListProperty, BooleanProperty
 from kivy.uix.image import Image
 from shapely import Polygon
 
@@ -38,6 +37,7 @@ class Camera(Image):
         display_fps: int = 30,
         notify_fps: int = 2,
         debounce_seconds: int = 5,
+        desktop_notifications: bool = True,
         **kwargs,
     ):
         super(Camera, self).__init__(**kwargs)
@@ -48,6 +48,7 @@ class Camera(Image):
         self.display = True
         self.debounce_seconds = debounce_seconds
         self.last_detected_time = 0.0
+        self.desktop_notifications = desktop_notifications
         self.on_display(self, True)
 
     def on_display(self, _instance, new_on_display):
@@ -76,7 +77,9 @@ class Camera(Image):
             if any(do_intersect) and ((now := time.time()) - self.last_detected_time > self.debounce_seconds):
                 for i, b in enumerate(do_intersect):
                     if b:
-                        print(class_objects[i].label)
+                        msg = f"{class_objects[i].label} detected!"
+                        plyer.notification.notify("KittyCam Alert", msg)
+                        print(msg)
                 self.last_detected_time = now
 
 
