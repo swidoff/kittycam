@@ -36,7 +36,7 @@ class Camera(Image):
         class_labels: Collection[str] | None = None,
         display_fps: int = 30,
         notify_fps: int = 2,
-        debounce_seconds: int = 5,
+        debounce_seconds: int = 15,
         desktop_notifications: bool = True,
         **kwargs,
     ):

@@ -23,8 +23,8 @@ class KittyCam(App):
         self.keyboard = None
 
     def build(self):
-        self.capture = cv2.VideoCapture(0)
-        self.camera = Camera(capture=self.capture, size=(640, 480), class_labels=["person"])
+        self.capture = cv2.VideoCapture(2)
+        self.camera = Camera(capture=self.capture, size=(640, 480), class_labels=["cat"])
         self.draw_polygons = DrawPolygons(size=(640, 480))
 
         layout = FloatLayout(size=(640, 480))
