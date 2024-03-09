@@ -1,3 +1,4 @@
 kivy[base]
 opencv-python
 shapely
+toolz
