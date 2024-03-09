@@ -19,11 +19,40 @@ FONT_FACE = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SCALE = 0.7
 THICKNESS = 1
 
-model_dir = Path("../models") / "ssd_mobilenet_v2_coco_2018_03_29"
-model_file = model_dir / "frozen_inference_graph.pb"
-config_file = model_dir / "ssd_mobilenet_v2_coco_2018_03_29.pbtxt"
+# https://github.com/opencv/opencv/wiki/TensorFlow-Object-Detection-API
 
-net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
+# model_dir = Path("../models") / "ssd_mobilenet_v2_coco_2018_03_29"
+# model_file = model_dir / "frozen_inference_graph.pb"
+# config_file = model_dir / "ssd_mobilenet_v2_coco_2018_03_29.pbtxt"
+# width = 300
+# height = 300
+# net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
+
+model_dir = Path("../models") / "ssd_mobilenet_v3_large_coco_2020_01_14"
+model_file = model_dir / "frozen_inference_graph.pb"
+config_file = model_dir / "ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt"
+net = cv2.dnn_DetectionModel(str(model_file), str(config_file))
+net.setInputSize(320, 320)
+net.setInputScale(1.0 / 127.5)
+net.setInputMean((127.5, 127.5, 127.5))
+net.setInputSwapRB(True)
+
+# model_dir = Path("../models") / "faster_rcnn_inception_v2_coco_2018_01_28"
+# model_file = model_dir / "frozen_inference_graph.pb"
+# config_file = model_dir / "faster_rcnn_inception_v2_coco_2018_01_28.pbtxt"
+# width = 320
+# height = 320
+# net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
+
+# model_dir = Path("../models")
+# model_file = model_dir / "efficientdet-d0.pb"
+# config_file = model_dir / "efficientdet-d0.pbtxt"
+# width = 512
+# height = 512
+# net = cv2.dnn_DetectionModel(str(model_file), str(config_file))
+# net.setInputSize(512, 512)
+# net.setInputScale(1.0 / 255)
+# net.setInputMean((123.675, 116.28, 103.53))
 
 
 class Camera(Image):
@@ -66,27 +95,20 @@ class Camera(Image):
     def update(self, _dt):
         has_frame, frame = self.capture.read()
         if has_frame:
-            objects = detect_objects(frame)
-            class_objects = filter_objects(objects, self.class_labels, frame.shape[0], frame.shape[1])
-            do_intersect = intersect_region(class_objects, self.polygons, frame.shape[1])
+            objects = detect_objects(frame, self.class_labels)
+            do_intersect = intersect_region(objects, self.polygons, frame.shape[1])
 
             if self.display:
-                display_objects(frame, class_objects, do_intersect)
+                display_objects(frame, objects, do_intersect)
                 self.texture = cv2_img_to_texture(frame)
 
             if any(do_intersect) and ((now := time.time()) - self.last_detected_time > self.debounce_seconds):
                 for i, b in enumerate(do_intersect):
                     if b:
-                        msg = f"{class_objects[i].label} detected!"
+                        msg = f"{objects[i].label} detected!"
                         plyer.notification.notify("KittyCam Alert", msg)
                         print(msg)
                 self.last_detected_time = now
-
-
-def detect_objects(im: np.ndarray, dim: int = 300) -> np.ndarray:
-    blob = cv2.dnn.blobFromImage(im, 1.0, size=(dim, dim), mean=(0, 0, 0), swapRB=True, crop=False)
-    net.setInput(blob)
-    return net.forward()
 
 
 @dataclass
@@ -98,29 +120,36 @@ class LabeledRectangle(object):
     label: str
 
 
-def filter_objects(
-    objects: np.ndarray,
-    label_filter: Set[str],
-    rows: int,
-    cols: int,
-    threshold: float = 0.25,
-) -> list[LabeledRectangle]:
+def detect_objects(im: np.ndarray, label_filter: Set[str], threshold: float = 0.5) -> list[LabeledRectangle]:
     res = []
+    # rows, cols, _ = im.shape
+    # blob = cv2.dnn.blobFromImage(im, 1.0, size=(width, height), mean=(0, 0, 0), swapRB=True, crop=False)
+    # net.setInput(blob)
+    # objects = net.forward()
+    #
+    # for i in range(objects.shape[2]):
+    #     # Find the class and confidence
+    #     class_id = int(objects[0, 0, i, 1])
+    #     score = float(objects[0, 0, i, 2])
+    #
+    #     # Check if the detection is of good quality
+    #     class_label = coco.class_labels[class_id]
+    #     if score > threshold and class_label in label_filter:
+    #         # Recover original coordinates from normalized coordinates
+    #         x = int(objects[0, 0, i, 3] * cols)
+    #         y = int(objects[0, 0, i, 4] * rows)
+    #         w = int(objects[0, 0, i, 5] * cols - x)
+    #         h = int(objects[0, 0, i, 6] * rows - y)
+    #         res.append(LabeledRectangle(x, y, w, h, class_label))
 
-    # For every Detected Object
-    for i in range(objects.shape[2]):
-        # Find the class and confidence
-        class_id = int(objects[0, 0, i, 1])
-        score = float(objects[0, 0, i, 2])
+    classes, confidences, boxes = net.detect(im, confThreshold=threshold, nmsThreshold=0.4)
+    if classes.shape[0] == 0:
+        return res
 
-        # Check if the detection is of good quality
+    for class_id, confidence, [x, y, w, h] in zip(classes.flatten(), confidences.flatten(), boxes):
         class_label = coco.class_labels[class_id]
-        if score > threshold and class_label in label_filter:
-            # Recover original coordinates from normalized coordinates
-            x = int(objects[0, 0, i, 3] * cols)
-            y = int(objects[0, 0, i, 4] * rows)
-            w = int(objects[0, 0, i, 5] * cols - x)
-            h = int(objects[0, 0, i, 6] * rows - y)
+        if confidence > threshold and class_label in label_filter:
+            print(class_label, confidence, [x, y, w, h])
             res.append(LabeledRectangle(x, y, w, h, class_label))
 
     return res

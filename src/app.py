@@ -8,9 +8,13 @@ from kivy.uix.floatlayout import FloatLayout
 from camera import Camera
 from draw import DrawPolygons, DrawPolygonEventManager
 
+width = 1280
+height = 720
+# width = 640
+# height = 480
 kivy.require("2.2.1")
-Config.set("graphics", "width", "640")
-Config.set("graphics", "height", "480")
+Config.set("graphics", "width", str(width))
+Config.set("graphics", "height", str(height))
 
 
 class KittyCam(App):
@@ -23,11 +27,14 @@ class KittyCam(App):
         self.keyboard = None
 
     def build(self):
-        self.capture = cv2.VideoCapture(2)
-        self.camera = Camera(capture=self.capture, size=(640, 480), class_labels=["cat"])
-        self.draw_polygons = DrawPolygons(size=(640, 480))
+        self.capture = cv2.VideoCapture(0)
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-        layout = FloatLayout(size=(640, 480))
+        self.camera = Camera(capture=self.capture, size=(width, height))  # , class_labels={"potted plant"})
+        self.draw_polygons = DrawPolygons(size=(width, height))
+
+        layout = FloatLayout(size=(width, height))
         polygon_layout = BoxLayout(opacity=0.5)
         polygon_layout.add_widget(self.draw_polygons)
         camera_layout = BoxLayout()
