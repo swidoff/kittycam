@@ -76,16 +76,18 @@ class Camera(Image):
         has_frame, frame = self.capture.read()
         if has_frame:
             objects = detect_objects(frame, self.class_labels, self.threshold)
-            do_intersect = intersect_region(objects, self.polygons, frame.shape[1])
+            update_object_intersects(objects, self.polygons, frame.shape[0])
 
             if self.display:
-                display_objects(frame, objects, do_intersect)
+                display_objects(frame, objects)
                 self.texture = cv2_img_to_texture(frame)
 
-            if any(do_intersect) and ((now := time.time()) - self.last_detected_time > self.debounce_seconds):
-                for i, b in enumerate(do_intersect):
-                    if b:
-                        self.dispatch("on_detect", f"{objects[i].label} detected!")
+            if any(o.intersects for o in objects) and (
+                (now := time.time()) - self.last_detected_time > self.debounce_seconds
+            ):
+                for o in objects:
+                    if o.intersects:
+                        self.dispatch("on_detect", f"{o.label} detected!")
                 self.last_detected_time = now
 
 
@@ -97,29 +99,12 @@ class LabeledRectangle(object):
     h: int
     label: str
     confidence: float
+    intersects: bool = False
 
 
 def detect_objects(im: np.ndarray, label_filter: Set[str], threshold: float = 0.5) -> list[LabeledRectangle]:
     res = []
     rows, cols, _ = im.shape
-    # blob = cv2.dnn.blobFromImage(im, 1.0, size=(width, height), mean=(0, 0, 0), swapRB=True, crop=False)
-    # net.setInput(blob)
-    # objects = net.forward()
-    #
-    # for i in range(objects.shape[2]):
-    #     # Find the class and confidence
-    #     class_id = int(objects[0, 0, i, 1])
-    #     score = float(objects[0, 0, i, 2])
-    #
-    #     # Check if the detection is of good quality
-    #     class_label = coco.class_labels[class_id]
-    #     if score > threshold and class_label in label_filter:
-    #         # Recover original coordinates from normalized coordinates
-    #         x = int(objects[0, 0, i, 3] * cols)
-    #         y = int(objects[0, 0, i, 4] * rows)
-    #         w = int(objects[0, 0, i, 5] * cols - x)
-    #         h = int(objects[0, 0, i, 6] * rows - y)
-    #         res.append(LabeledRectangle(x, y, w, h, class_label))
 
     classes, confidences, boxes = net.detect(im, confThreshold=threshold, nmsThreshold=0.4)
     if isinstance(classes, tuple) or classes.shape[0] == 0:
@@ -128,29 +113,29 @@ def detect_objects(im: np.ndarray, label_filter: Set[str], threshold: float = 0.
     for class_id, confidence, [x, y, w, h] in zip(classes.flatten(), confidences.flatten(), boxes):
         class_label = coco.class_labels[class_id]
         if confidence > threshold and class_label in label_filter:
-            print(class_label, confidence, [x, y, w, h])
             res.append(LabeledRectangle(x, y, w, h, class_label, confidence))
 
     return res
 
 
-def intersect_region(objects: list[LabeledRectangle], regions: list[Polygon], rows: int) -> list[bool]:
-    res = []
+def update_object_intersects(objects: list[LabeledRectangle], regions: list[Polygon], rows: int):
+    if not regions:
+        return
+
     for o in objects:
         oy = rows - o.y
         poly = Polygon(shell=[(o.x, oy), (o.x + o.w, oy), (o.x + o.w, oy - o.h), (o.x, oy - o.h)])
-        res.append(any(poly.intersects(region) for region in regions))
-    return res
+        o.intersects = any(poly.intersects(region) for region in regions)
 
 
-def display_objects(im: np.ndarray, objects: list[LabeledRectangle], intersects: list[bool]):
-    for i, o in enumerate(objects):
-        if intersects[i]:
+def display_objects(im: np.ndarray, objects: list[LabeledRectangle]):
+    for o in objects:
+        if o.intersects:
             color = (0, 0, 255)
         else:
             color = (255, 255, 255)
 
-        display_text(im, f"{o.label} ({(o.confidence * 100.0):.02}%)", o.x, o.y)
+        display_text(im, f"{o.label} ({o.confidence:2.2%})", o.x, o.y)
         cv2.rectangle(im, (o.x, o.y), (o.x + o.w, o.y + o.h), color, 2)
 
 
