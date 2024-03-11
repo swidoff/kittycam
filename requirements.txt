@@ -1,6 +1,8 @@
 aiosmtplib
 kivy[base]
 opencv-python
+playsound
 plyer
 shapely
 toolz
+wheel
