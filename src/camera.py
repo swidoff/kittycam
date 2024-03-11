@@ -66,6 +66,7 @@ class Camera(Image):
         display_fps: int = 30,
         notify_fps: int = 2,
         debounce_seconds: int = 15,
+        threshold: float = 0.5,
         desktop_notifications: bool = True,
         **kwargs,
     ):
@@ -77,6 +78,7 @@ class Camera(Image):
         self.display = True
         self.debounce_seconds = debounce_seconds
         self.last_detected_time = 0.0
+        self.threshold = threshold
         self.desktop_notifications = desktop_notifications
         self.on_display(self, True)
 
@@ -95,7 +97,7 @@ class Camera(Image):
     def update(self, _dt):
         has_frame, frame = self.capture.read()
         if has_frame:
-            objects = detect_objects(frame, self.class_labels)
+            objects = detect_objects(frame, self.class_labels, self.threshold)
             do_intersect = intersect_region(objects, self.polygons, frame.shape[1])
 
             if self.display:
@@ -107,7 +109,6 @@ class Camera(Image):
                     if b:
                         msg = f"{objects[i].label} detected!"
                         plyer.notification.notify("KittyCam Alert", msg)
-                        print(msg)
                 self.last_detected_time = now
 
 
@@ -118,11 +119,12 @@ class LabeledRectangle(object):
     w: int
     h: int
     label: str
+    confidence: float
 
 
 def detect_objects(im: np.ndarray, label_filter: Set[str], threshold: float = 0.5) -> list[LabeledRectangle]:
     res = []
-    # rows, cols, _ = im.shape
+    rows, cols, _ = im.shape
     # blob = cv2.dnn.blobFromImage(im, 1.0, size=(width, height), mean=(0, 0, 0), swapRB=True, crop=False)
     # net.setInput(blob)
     # objects = net.forward()
@@ -143,14 +145,14 @@ def detect_objects(im: np.ndarray, label_filter: Set[str], threshold: float = 0.
     #         res.append(LabeledRectangle(x, y, w, h, class_label))
 
     classes, confidences, boxes = net.detect(im, confThreshold=threshold, nmsThreshold=0.4)
-    if classes.shape[0] == 0:
+    if isinstance(classes, tuple) or classes.shape[0] == 0:
         return res
 
     for class_id, confidence, [x, y, w, h] in zip(classes.flatten(), confidences.flatten(), boxes):
         class_label = coco.class_labels[class_id]
         if confidence > threshold and class_label in label_filter:
             print(class_label, confidence, [x, y, w, h])
-            res.append(LabeledRectangle(x, y, w, h, class_label))
+            res.append(LabeledRectangle(x, y, w, h, class_label, confidence))
 
     return res
 
@@ -171,7 +173,7 @@ def display_objects(im: np.ndarray, objects: list[LabeledRectangle], intersects:
         else:
             color = (255, 255, 255)
 
-        display_text(im, o.label, o.x, o.y)
+        display_text(im, f"{o.label} ({(o.confidence * 100.0):.02}%)", o.x, o.y)
         cv2.rectangle(im, (o.x, o.y), (o.x + o.w, o.y + o.h), color, 2)
 
 
