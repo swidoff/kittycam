@@ -14,11 +14,11 @@ from draw import DrawPolygons, DrawPolygonEventManager
 from src import send_txt_msg
 
 # Poor man's config
-# camera = 2
-camera = 0
+camera = 2
+# camera = 0
 threshold = 0.3
-# class_labels = {"cat", "dog", "bear"}
-class_labels = {"person"}
+class_labels = {"cat", "dog", "bear"}
+# class_labels = {"person"}
 desktop_notifications = True
 txt_notifications = True
 debounce_seconds = 30

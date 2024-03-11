@@ -15,10 +15,9 @@ Video: https://youtu.be/hKxtMaa2hwQ
 Turn on: https://myaccount.google.com/lesssecureapps
 """
 
-import asyncio
 import re
 from email.message import EmailMessage
-from typing import Collection, List, Tuple, Union
+from typing import Tuple, Union
 
 import aiosmtplib
 
