@@ -1,3 +1,5 @@
+import asyncio
+
 import cv2
 import kivy
 from kivy.app import App
@@ -9,6 +11,7 @@ import plyer
 
 from camera import Camera
 from draw import DrawPolygons, DrawPolygonEventManager
+from src import send_txt_msg
 
 # Poor man's config
 # camera = 2
@@ -32,6 +35,7 @@ txt_carrier = "at&t"
 kivy.require("2.2.1")
 Config.set("graphics", "width", str(width))
 Config.set("graphics", "height", str(height))
+loop = asyncio.get_event_loop()
 
 
 class KittyCam(App):
@@ -55,10 +59,10 @@ class KittyCam(App):
             class_labels=class_labels,
             debounce_seconds=debounce_seconds,
         )
-        self.draw_polygons = DrawPolygons(size=(width, height))
+        self.camera.bind(on_detect=self.notify)
 
-        if desktop_notifications:
-            self.camera.bind(on_detect=lambda _, msg: plyer.notification.notify("KittyCam Alert", msg))
+        self.draw_polygons = DrawPolygons(size=(width, height))
+        self.draw_polygons.bind(polygons=self.camera.setter("polygons"))
 
         layout = FloatLayout(size=(width, height))
         polygon_layout = BoxLayout(opacity=0.5)
@@ -68,8 +72,16 @@ class KittyCam(App):
         layout.add_widget(camera_layout)
         layout.add_widget(polygon_layout)
 
-        self.draw_polygons.bind(polygons=self.camera.setter("polygons"))
         return layout
+
+    def notify(self, _something, msg):
+        if desktop_notifications:
+            plyer.notification.notify("KittyCam Alert", msg)
+
+        if txt_notifications:
+            loop.create_task(
+                send_txt_msg.send_txt(txt_num, txt_carrier, txt_email, txt_password, msg, "KittyCam Alert")
+            )
 
     def on_start(self):
         super().on_start()
@@ -97,4 +109,6 @@ class KittyCam(App):
 
 
 if __name__ == "__main__":
-    KittyCam().run()
+    app = KittyCam()
+    loop.run_until_complete(app.async_run())
+    # KittyCam().run()

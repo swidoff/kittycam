@@ -53,10 +53,3 @@ async def send_txt(num: Union[str, int], carrier: str, email: str, pword: str, m
     msg = "failed" if not re.search(r"\sOK\s", res[1]) else "succeeded"
     print(msg)
     return res
-
-
-async def send_txts(
-    nums: Collection[Union[str, int]], carrier: str, email: str, pword: str, msg: str, subj: str
-) -> List[Tuple[dict, str]]:
-    tasks = [send_txt(n, carrier, email, pword, msg, subj) for n in set(nums)]
-    return await asyncio.gather(*tasks)
