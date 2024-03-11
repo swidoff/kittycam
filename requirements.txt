@@ -1,3 +1,4 @@
+aiosmtplib
 kivy[base]
 opencv-python
 plyer

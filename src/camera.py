@@ -5,7 +5,6 @@ from typing import Collection, Set
 
 import cv2
 import numpy as np
-import plyer
 from kivy.clock import Clock
 from kivy.graphics.texture import texture_create
 from kivy.properties import ListProperty, BooleanProperty
@@ -21,13 +20,6 @@ THICKNESS = 1
 
 # https://github.com/opencv/opencv/wiki/TensorFlow-Object-Detection-API
 
-# model_dir = Path("../models") / "ssd_mobilenet_v2_coco_2018_03_29"
-# model_file = model_dir / "frozen_inference_graph.pb"
-# config_file = model_dir / "ssd_mobilenet_v2_coco_2018_03_29.pbtxt"
-# width = 300
-# height = 300
-# net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
-
 model_dir = Path("../models") / "ssd_mobilenet_v3_large_coco_2020_01_14"
 model_file = model_dir / "frozen_inference_graph.pb"
 config_file = model_dir / "ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt"
@@ -36,23 +28,6 @@ net.setInputSize(320, 320)
 net.setInputScale(1.0 / 127.5)
 net.setInputMean((127.5, 127.5, 127.5))
 net.setInputSwapRB(True)
-
-# model_dir = Path("../models") / "faster_rcnn_inception_v2_coco_2018_01_28"
-# model_file = model_dir / "frozen_inference_graph.pb"
-# config_file = model_dir / "faster_rcnn_inception_v2_coco_2018_01_28.pbtxt"
-# width = 320
-# height = 320
-# net = cv2.dnn.readNetFromTensorflow(str(model_file), str(config_file))
-
-# model_dir = Path("../models")
-# model_file = model_dir / "efficientdet-d0.pb"
-# config_file = model_dir / "efficientdet-d0.pbtxt"
-# width = 512
-# height = 512
-# net = cv2.dnn_DetectionModel(str(model_file), str(config_file))
-# net.setInputSize(512, 512)
-# net.setInputScale(1.0 / 255)
-# net.setInputMean((123.675, 116.28, 103.53))
 
 
 class Camera(Image):
@@ -67,7 +42,6 @@ class Camera(Image):
         notify_fps: int = 2,
         debounce_seconds: int = 15,
         threshold: float = 0.5,
-        desktop_notifications: bool = True,
         **kwargs,
     ):
         super(Camera, self).__init__(**kwargs)
@@ -79,8 +53,12 @@ class Camera(Image):
         self.debounce_seconds = debounce_seconds
         self.last_detected_time = 0.0
         self.threshold = threshold
-        self.desktop_notifications = desktop_notifications
         self.on_display(self, True)
+        self.register_event_type("on_detect")
+
+    # noinspection PyMethodMayBeStatic
+    def on_detect(self, msg: str):
+        print(msg)
 
     def on_display(self, _instance, new_on_display):
         if self.event:
@@ -107,8 +85,7 @@ class Camera(Image):
             if any(do_intersect) and ((now := time.time()) - self.last_detected_time > self.debounce_seconds):
                 for i, b in enumerate(do_intersect):
                     if b:
-                        msg = f"{objects[i].label} detected!"
-                        plyer.notification.notify("KittyCam Alert", msg)
+                        self.dispatch("on_detect", f"{objects[i].label} detected!")
                 self.last_detected_time = now
 
 

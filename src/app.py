@@ -4,16 +4,31 @@ from kivy.app import App
 from kivy.config import Config
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
+import os
+import plyer
 
 from camera import Camera
 from draw import DrawPolygons, DrawPolygonEventManager
 
-# width = 1920
-# height = 1080
-# width = 1280
-# height = 720
+# Poor man's config
+# camera = 2
+camera = 0
+threshold = 0.3
+# class_labels = {"cat", "dog", "bear"}
+class_labels = {"person"}
+desktop_notifications = False
+txt_notifications = True
+debounce_seconds = 30
 width = 640
 height = 480
+
+
+txt_email = os.getenv("KITTYCAM_TXT_EMAIL")
+txt_password = os.getenv("KITTYCAM_TXT_PASSWORD")
+txt_num = os.getenv("KITTYCAM_TXT_NUMBER")
+txt_carrier = "at&t"
+
+
 kivy.require("2.2.1")
 Config.set("graphics", "width", str(width))
 Config.set("graphics", "height", str(height))
@@ -29,14 +44,21 @@ class KittyCam(App):
         self.keyboard = None
 
     def build(self):
-        self.capture = cv2.VideoCapture(0)
+        self.capture = cv2.VideoCapture(camera)
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
         self.camera = Camera(
-            capture=self.capture, size=(width, height), threshold=0.3, class_labels={"cat", "dog", "bear"}
+            capture=self.capture,
+            size=(width, height),
+            threshold=threshold,
+            class_labels=class_labels,
+            debounce_seconds=debounce_seconds,
         )
         self.draw_polygons = DrawPolygons(size=(width, height))
+
+        if desktop_notifications:
+            self.camera.bind(on_detect=lambda _, msg: plyer.notification.notify("KittyCam Alert", msg))
 
         layout = FloatLayout(size=(width, height))
         polygon_layout = BoxLayout(opacity=0.5)
