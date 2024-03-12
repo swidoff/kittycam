@@ -31,6 +31,12 @@ net.setInputSwapRB(True)
 
 
 class Camera(Image):
+    """Samples the camera and detects whether objects with the given labels and confidence >= threshold intersect
+    the list of polygon. On detection will trigger the `on_detected` event with a message argument, then silence further
+    detections for `debounce_seconds`. Display mode renders the camera at `display_fps`, otherwise shows a static image
+    and samples the camera at `notify_fps`.
+    """
+
     polygons = ListProperty([])
     display = BooleanProperty(True)
 
