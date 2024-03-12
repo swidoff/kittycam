@@ -20,7 +20,7 @@ cwd = pathlib.Path(__file__).parent.absolute()
 # Poor man's config
 camera = 0
 threshold = 0.3
-class_labels = {"cat", "dog", "bear"}  # Sometimes can't tell if Walnut is a dog or bear (!).
+class_labels = {"cat", "dog", "bear"}  # Sometimes mistakes Walnut for a dog or bear (!).
 # class_labels = {"person"}
 desktop_notifications = True
 txt_notifications = False
