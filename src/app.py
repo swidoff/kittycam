@@ -18,14 +18,14 @@ from playsound import playsound
 cwd = pathlib.Path(__file__).parent.absolute()
 
 # Poor man's config
-camera = 0
+camera = 2
 threshold = 0.3
 class_labels = {"cat", "dog", "bear"}  # Sometimes mistakes Walnut for a dog or bear (!).
 # class_labels = {"person"}
 desktop_notifications = True
 txt_notifications = False
 sound_notification = True
-debounce_seconds = 30
+debounce_seconds = 20
 width = 640
 height = 480
 
@@ -35,6 +35,7 @@ txt_password = os.getenv("KITTYCAM_TXT_PASSWORD")
 txt_num = os.getenv("KITTYCAM_TXT_NUMBER")
 txt_carrier = "at&t"
 sound_file = cwd / "cat-meow-6226.mp3"
+screenshot_dir = cwd / "../screenshots"
 
 kivy.require("2.2.1")
 Config.set("graphics", "width", str(width))
@@ -62,6 +63,7 @@ class KittyCam(App):
             threshold=threshold,
             class_labels=class_labels,
             debounce_seconds=debounce_seconds,
+            screenshot_dir=screenshot_dir,
         )
         self.camera.bind(on_detect=self.notify)
 

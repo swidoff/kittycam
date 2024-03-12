@@ -1,3 +1,4 @@
+import datetime
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,6 +49,7 @@ class Camera(Image):
         notify_fps: int = 2,
         debounce_seconds: int = 15,
         threshold: float = 0.5,
+        screenshot_dir: Path | None = None,
         **kwargs,
     ):
         super(Camera, self).__init__(**kwargs)
@@ -59,6 +61,7 @@ class Camera(Image):
         self.debounce_seconds = debounce_seconds
         self.last_detected_time = 0.0
         self.threshold = threshold
+        self.screenshot_dir = screenshot_dir
         self.on_display(self, True)
         self.register_event_type("on_detect")
 
@@ -91,9 +94,14 @@ class Camera(Image):
             if any(o.intersects for o in objects) and (
                 (now := time.time()) - self.last_detected_time > self.debounce_seconds
             ):
-                for o in objects:
-                    if o.intersects:
-                        self.dispatch("on_detect", f"{o.label} detected!")
+                labels = [o.label for o in objects if o.intersects]
+                self.dispatch("on_detect", f"{', '.join(labels)} detected!")
+
+                if self.screenshot_dir is not None:
+                    display_text(frame, "Busted!", 10, 50)
+                    now_str = datetime.datetime.fromtimestamp(now).strftime("%Y%m%d-%H%M%S")
+                    cv2.imwrite(str(self.screenshot_dir / f"detected_{now_str}.png"), frame)
+
                 self.last_detected_time = now
 
 
