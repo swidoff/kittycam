@@ -3,6 +3,8 @@
 Use an ever vigilant webcam to detect when my cat enters a forbidden region 
 (like the top of the backyard fence). 
 
+![img.png](img.png)
+
 Can alert with a combination of:
 * desktop notifications
 * sounds
