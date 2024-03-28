@@ -98,6 +98,7 @@ class Camera(Image):
                 self.dispatch("on_detect", f"{', '.join(labels)} detected!")
 
                 if self.screenshot_dir is not None:
+                    display_objects(frame, objects)
                     display_text(frame, "Busted!", 10, 50)
                     now_str = datetime.datetime.fromtimestamp(now).strftime("%Y%m%d-%H%M%S")
                     cv2.imwrite(str(self.screenshot_dir / f"detected_{now_str}.png"), frame)

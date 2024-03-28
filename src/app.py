@@ -18,7 +18,7 @@ from playsound import playsound
 cwd = pathlib.Path(__file__).parent.absolute()
 
 # Poor man's config
-camera = 2
+camera = 0
 threshold = 0.3
 class_labels = {"cat", "dog", "bear"}  # Sometimes mistakes Walnut for a dog or bear (!).
 # class_labels = {"person"}
